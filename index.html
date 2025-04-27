@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JSON Viewer</title>
+  <style>
+    :root {
+      --bg-color: #1e1e2f;
+      --text-color: #fff;
+      --glass-bg: rgba(255, 255, 255, 0.07);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --string-color: #81c784;
+      --number-color: #f06292;
+      --boolean-color: #ba68c8;
+      --null-color: #e57373;
+      --key-color: #4fc3f7;
+      --error-bg: rgba(255, 0, 0, 0.1);
+      --footer-color: #ff6ec7;
+    }
+
+    body.light {
+      --bg-color: #f0f0f5;
+      --text-color: #000;
+      --glass-bg: rgba(255, 255, 255, 0.6);
+      --border-color: rgba(0, 0, 0, 0.1);
+      --string-color: #2e7d32;
+      --number-color: #ad1457;
+      --boolean-color: #6a1b9a;
+      --null-color: #c62828;
+      --key-color: #1565c0;
+      --error-bg: rgba(255, 87, 87, 0.2);
+      --footer-color: #d81b60;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    header {
+      text-align: center;
+      padding: 1rem;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      font-size: 1.6rem;
+      font-weight: bold;
+      border-bottom: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .theme-toggle {
+      position: absolute;
+      right: 1rem;
+      top: 1rem;
+      font-size: 0.9rem;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 0.3rem 0.6rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .theme-toggle:hover {
+      background: var(--border-color);
+    }
+
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      flex-direction: row;
+    }
+
+    textarea,
+    #viewer {
+      padding: 1rem;
+      border: none;
+      height: 100%;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 1rem;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      color: var(--text-color);
+      outline: none;
+      transition: background 0.3s ease;
+    }
+
+    textarea {
+      resize: none;
+      border-right: 1px solid var(--border-color);
+      /* default initial width */
+      width: 50%;
+    }
+
+    #viewer {
+      flex: 1;
+      border-left: 1px solid var(--border-color);
+    }
+
+    /* New divider element styles */
+    .divider {
+      width: 5px;
+      background: var(--border-color);
+      cursor: col-resize;
+      user-select: none;
+    }
+
+    .node {
+      margin-left: 20px;
+    }
+
+    .toggle {
+      cursor: pointer;
+      color: #ffd700;
+      margin-right: 5px;
+      user-select: none;
+    }
+
+    .key {
+      color: var(--key-color);
+    }
+
+    .string {
+      color: var(--string-color);
+    }
+
+    .number {
+      color: var(--number-color);
+    }
+
+    .boolean {
+      color: var(--boolean-color);
+    }
+
+    .null {
+      color: var(--null-color);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .error-node {
+      background: #ff5757;
+      padding: 0 4px;
+      border-radius: 3px;
+      color: white;
+    }
+
+    #error-message {
+      color: red;
+      padding: 0.8rem;
+      background: var(--error-bg);
+      font-size: 0.95rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 0.7rem;
+      background: var(--glass-bg);
+      font-size: 0.95rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    footer span {
+      color: var(--footer-color);
+      font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      main {
+        flex-direction: column;
+      }
+
+      textarea,
+      #viewer {
+        width: 100%;
+        height: 50%;
+        font-size: 0.9rem;
+      }
+
+      header {
+        font-size: 1.2rem;
+      }
+
+      footer {
+        font-size: 0.85rem;
+        padding: 0.6rem;
+      }
+
+      .theme-toggle {
+        top: 0.5rem;
+        right: 0.5rem;
+      }
+
+      .divider {
+        width: 100%;
+        height: 5px;
+        cursor: row-resize;
+      }
+    }
+  </style>
+</head>
+<body class="dark">
+  <header>
+    JSON Parser
+    <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+  </header>
+
+  <main>
+    <textarea id="jsonInput" placeholder='Paste your JSON here...'></textarea>
+    <div class="divider"></div>
+    <div id="viewer"></div>
+  </main>
+
+  <div id="error-message" class="hidden"></div>
+  <footer>Made with ❤️ by <span>Tufail Akram</span> with AI</footer>
+
+  <script>
+    const input = document.getElementById('jsonInput');
+    const viewer = document.getElementById('viewer');
+    const errorMessageDiv = document.getElementById('error-message');
+    const body = document.body;
+    const divider = document.querySelector('.divider');
+    const textarea = document.getElementById('jsonInput');
+
+    function toggleTheme() {
+      body.classList.toggle("light");
+      body.classList.toggle("dark");
+    }
+
+    function getType(value) {
+      if (Array.isArray(value)) return 'array';
+      if (value === null) return 'null';
+      return typeof value;
+    }
+
+    function createNode(key, value) {
+      const container = document.createElement('div');
+      container.className = 'node';
+      const isObject = typeof value === 'object' && value !== null;
+
+      const toggle = document.createElement('span');
+      toggle.textContent = isObject ? '[-]' : '';
+      toggle.className = isObject ? 'toggle' : '';
+
+      const keySpan = document.createElement('span');
+      keySpan.className = 'key';
+      keySpan.textContent = key !== null ? `"${key}": ` : '';
+
+      const valueSpan = document.createElement('span');
+      let valueType = getType(value);
+
+      if (Array.isArray(value)) {
+        valueSpan.textContent = '[...]';
+        valueSpan.className = 'string';
+      } else if (isObject) {
+        valueSpan.textContent = '{...}';
+        valueSpan.className = 'string';
+      } else if (typeof value === 'string') {
+        valueSpan.textContent = `"${value}"`;
+        valueSpan.className = 'string';
+      } else if (typeof value === 'number') {
+        valueSpan.textContent = value;
+        valueSpan.className = 'number';
+      } else if (typeof value === 'boolean') {
+        valueSpan.textContent = value;
+        valueSpan.className = 'boolean';
+      } else if (value === null) {
+        valueSpan.textContent = 'null';
+        valueSpan.className = 'null';
+      }
+
+      container.append(toggle, keySpan, valueSpan);
+
+      if (isObject) {
+        const childContainer = document.createElement('div');
+        childContainer.className = 'node';
+
+        for (const k in value) {
+          childContainer.appendChild(createNode(k, value[k]));
+        }
+
+        toggle.addEventListener('click', () => {
+          const hidden = childContainer.classList.toggle('hidden');
+          toggle.textContent = hidden ? '[+]' : '[−]';
+        });
+
+        container.appendChild(childContainer);
+      }
+
+      return container;
+    }
+
+    function renderJSON() {
+      viewer.innerHTML = '';
+      errorMessageDiv.classList.add('hidden');
+
+      if (!input.value.trim()) {
+        viewer.textContent = '📝 Please enter JSON data';
+        return;
+      }
+
+      try {
+        const data = JSON.parse(input.value.trim());
+        viewer.appendChild(createNode(null, data));
+      } catch (e) {
+        const lines = input.value.split('\n');
+        const errorMatch = e.message.match(/line (\d+) column (\d+)/);
+        if (errorMatch) {
+          const errorLineIndex = parseInt(errorMatch[1], 10) - 1;
+          const errorCharIndex = parseInt(errorMatch[2], 10) - 1;
+
+          lines.forEach((line, index) => {
+            const lineDiv = document.createElement('div');
+            if (index === errorLineIndex) {
+              const beforeError = document.createElement('span');
+              beforeError.textContent = line.substring(0, errorCharIndex);
+
+              const errorPart = document.createElement('span');
+              errorPart.textContent = line.substring(errorCharIndex, errorCharIndex + 20);
+              errorPart.className = 'error-node';
+
+              const afterError = document.createElement('span');
+              afterError.textContent = line.substring(errorCharIndex + 20);
+
+              lineDiv.append(beforeError, errorPart, afterError);
+            } else {
+              lineDiv.textContent = line;
+            }
+            viewer.appendChild(lineDiv);
+          });
+
+          errorMessageDiv.classList.remove('hidden');
+          errorMessageDiv.textContent = `SyntaxError: ${e.message}`;
+        } else {
+          viewer.textContent = input.value;
+        }
+      }
+    }
+
+    input.addEventListener('input', renderJSON);
+    renderJSON();
+
+    // Resizable textarea logic using the divider
+    divider.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+    });
+
+    function onPointerMove(e) {
+      // Calculate new width for the textarea (limit between 20% and 80% of the main container)
+      const mainRect = document.querySelector('main').getBoundingClientRect();
+      let newWidth = e.clientX - mainRect.left;
+      let minWidth = mainRect.width * 0.2;
+      let maxWidth = mainRect.width * 0.8;
+      if (newWidth < minWidth) newWidth = minWidth;
+      if (newWidth > maxWidth) newWidth = maxWidth;
+      textarea.style.width = newWidth + 'px';
+    }
+
+    function onPointerUp() {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+    }
+  </script>
+</body>
+</html>
